@@ -44,9 +44,32 @@ CREATE TABLE IF NOT EXISTS public.food_attribute (
 );
 '''
 
+def fetch_food_table(**context):
+    redshift_hook = RedshiftSQLHook(redshift_conn_id='wouldUlike-redshift')
+    
+    new_estate_sql = """
+    SELECT * FROM public.daegu_food;
+    """
+        
+    conn = redshift_hook.get_conn()
+    cursor = conn.cursor()
+
+    cursor.execute(new_estate_sql)
+    rows = cursor.fetchall()
+    df = pd.DataFrame(rows, columns=['name', 'status', 'address_zip_code', 'road_zip_code', 'road_full_address', 'road_address', 'x', 'y', 'phone_number', 'category_1', 'category_2', 'district_name'])
+    arr = df.to_dict(orient='records')
+
+    context["ti"].xcom_push(key="food_data", value=arr)
+
 create_food_attribute_table_task = PostgresOperator(
     task_id = "create_food_attribute_table",
     postgres_conn_id ='wouldUlike-redshift',
     sql = CREATE_QUERY,
     dag = dag
+)
+
+fetch_food_table_task = PythonOperator(
+    task_id = "fetch_food_table",
+    python_callable=fetch_food_table,
+    dag=dag
 )
